@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Voice Input</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 10px;
+            background: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        }
+
+        #container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            -webkit-app-region: drag;
+        }
+
+        #recordButton {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 14px;
+            -webkit-app-region: no-drag;
+        }
+
+        #recordButton:hover {
+            background: #0056b3;
+        }
+
+        #recordButton:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+
+        #status {
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+        }
+
+        #closeButton {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 5px;
+            -webkit-app-region: no-drag;
+        }
+
+        #closeButton:hover {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <button id="closeButton">×</button>
+        <button id="recordButton">Start Transcription</button>
+        <div id="status">Click to start transcription</div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        const recordButton = document.getElementById('recordButton');
+        const status = document.getElementById('status');
+        const closeButton = document.getElementById('closeButton');
+
+        recordButton.addEventListener('click', () => {
+            recordButton.disabled = true;
+            status.textContent = 'Transcribing audio...';
+            
+            ipcRenderer.send('start-transcription');
+        });
+
+        ipcRenderer.on('transcription-complete', (event, text) => {
+            // Copy text to clipboard
+            require('electron').clipboard.writeText(text);
+            status.textContent = 'Transcription copied to clipboard!';
+            
+            // Reset after a moment
+            setTimeout(() => {
+                status.textContent = 'Click to start transcription';
+                recordButton.disabled = false;
+                ipcRenderer.send('hide-window');
+            }, 2000);
+        });
+
+        ipcRenderer.on('transcription-error', (event, error) => {
+            status.textContent = `Error: ${error}`;
+            recordButton.disabled = false;
+        });
+
+        closeButton.addEventListener('click', () => {
+            ipcRenderer.send('hide-window');
+        });
+    </script>
+</body>
+</html>
