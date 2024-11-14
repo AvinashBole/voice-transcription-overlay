@@ -139,23 +139,19 @@ ipcMain.on('stop-recording', (event) => {
                     debugLog(`Transcription stdout: ${stdout}`);
                     if (stderr) debugLog(`Transcription stderr: ${stderr}`);
                     
-                    // Read the generated txt file
-                    const txtFile = recordingFile.replace('.wav', '.txt');
-                    debugLog(`Reading transcription from: ${txtFile}`);
-                    
-                    fs.readFile(txtFile, 'utf8', (err, data) => {
-                        if (err) {
-                            debugLog(`Error reading transcription: ${err.message}`);
-                            event.sender.send('transcription-error', err.message);
-                        } else {
-                            const transcription = data.trim();
-                            debugLog(`Transcription result: "${transcription}"`);
-                            event.sender.send('transcription-complete', transcription);
+                    // Extract transcription from stdout
+                    const lines = stdout.split('\n');
+                    let transcription = '';
+                    for (const line of lines) {
+                        if (line.includes('-->')) {
+                            transcription += line.split(']')[1].trim() + ' ';
                         }
-                        
-                        // Keep the debug files for inspection
-                        debugLog('Transcription process complete');
-                    });
+                    }
+                    transcription = transcription.trim();
+                    
+                    debugLog(`Extracted transcription: "${transcription}"`);
+                    event.sender.send('transcription-complete', transcription);
+                    debugLog('Transcription process complete');
                 });
             }, 1000);
         });
