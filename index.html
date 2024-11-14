@@ -29,7 +29,7 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.2s;
             font-size: 14px;
             -webkit-app-region: no-drag;
         }
@@ -38,9 +38,21 @@
             background: #0056b3;
         }
 
+        #recordButton.recording {
+            background: #dc3545;
+            animation: pulse 1.5s infinite;
+        }
+
         #recordButton:disabled {
             background: #cccccc;
             cursor: not-allowed;
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
 
         #status {
@@ -65,13 +77,21 @@
         #closeButton:hover {
             color: #333;
         }
+
+        #timer {
+            font-size: 12px;
+            color: #dc3545;
+            margin-top: 5px;
+            visibility: hidden;
+        }
     </style>
 </head>
 <body>
     <div id="container">
         <button id="closeButton">×</button>
-        <button id="recordButton">Start Transcription</button>
-        <div id="status">Click to start transcription</div>
+        <button id="recordButton">Start Recording</button>
+        <div id="timer">00:00</div>
+        <div id="status">Click to start recording</div>
     </div>
 
     <script>
@@ -79,12 +99,56 @@
         const recordButton = document.getElementById('recordButton');
         const status = document.getElementById('status');
         const closeButton = document.getElementById('closeButton');
+        const timer = document.getElementById('timer');
+        
+        let isRecording = false;
+        let startTime;
+        let timerInterval;
+
+        function updateTimer() {
+            const now = Date.now();
+            const diff = now - startTime;
+            const seconds = Math.floor(diff / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            timer.textContent = `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+        }
 
         recordButton.addEventListener('click', () => {
-            recordButton.disabled = true;
-            status.textContent = 'Transcribing audio...';
-            
-            ipcRenderer.send('start-transcription');
+            if (!isRecording) {
+                // Start recording
+                ipcRenderer.send('start-recording');
+                recordButton.textContent = 'Stop Recording';
+                recordButton.classList.add('recording');
+                status.textContent = 'Recording... Speak now';
+                timer.style.visibility = 'visible';
+                startTime = Date.now();
+                timerInterval = setInterval(updateTimer, 1000);
+                isRecording = true;
+            } else {
+                // Stop recording
+                ipcRenderer.send('stop-recording');
+                recordButton.disabled = true;
+                recordButton.classList.remove('recording');
+                status.textContent = 'Processing audio...';
+                timer.style.visibility = 'hidden';
+                clearInterval(timerInterval);
+                isRecording = false;
+            }
+        });
+
+        ipcRenderer.on('recording-started', () => {
+            status.textContent = 'Recording... Speak now';
+        });
+
+        ipcRenderer.on('recording-error', (event, error) => {
+            status.textContent = `Error: ${error}`;
+            recordButton.textContent = 'Start Recording';
+            recordButton.disabled = false;
+            recordButton.classList.remove('recording');
+            timer.style.visibility = 'hidden';
+            clearInterval(timerInterval);
+            isRecording = false;
         });
 
         ipcRenderer.on('transcription-complete', (event, text) => {
@@ -94,7 +158,8 @@
             
             // Reset after a moment
             setTimeout(() => {
-                status.textContent = 'Click to start transcription';
+                status.textContent = 'Click to start recording';
+                recordButton.textContent = 'Start Recording';
                 recordButton.disabled = false;
                 ipcRenderer.send('hide-window');
             }, 2000);
@@ -102,10 +167,14 @@
 
         ipcRenderer.on('transcription-error', (event, error) => {
             status.textContent = `Error: ${error}`;
+            recordButton.textContent = 'Start Recording';
             recordButton.disabled = false;
         });
 
         closeButton.addEventListener('click', () => {
+            if (isRecording) {
+                ipcRenderer.send('stop-recording');
+            }
             ipcRenderer.send('hide-window');
         });
     </script>
