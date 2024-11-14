@@ -110,10 +110,11 @@ ipcMain.on('stop-recording', (event) => {
         debugLog('Stopping recording process');
         recordProcess.kill();
         
-        debugLog(`Recording saved to: ${currentRecordingFile}`);
+        const recordingFile = currentRecordingFile; // Store in local variable
+        debugLog(`Recording saved to: ${recordingFile}`);
         
         // Check if the file exists and get its size
-        fs.stat(currentRecordingFile, (err, stats) => {
+        fs.stat(recordingFile, (err, stats) => {
             if (err) {
                 debugLog(`Error checking recording file: ${err.message}`);
                 event.sender.send('transcription-error', 'Recording file not found');
@@ -124,7 +125,7 @@ ipcMain.on('stop-recording', (event) => {
             // Wait a bit for the file to be fully written
             setTimeout(() => {
                 const whisperPath = '/Users/avinbole/claude-computer-use-macos/venv/bin/whisper';
-                const command = `${whisperPath} "${currentRecordingFile}" --model turbo`;
+                const command = `${whisperPath} "${recordingFile}" --model turbo`;
 
                 debugLog(`Starting transcription with command: ${command}`);
                 exec(command, (error, stdout, stderr) => {
@@ -139,7 +140,7 @@ ipcMain.on('stop-recording', (event) => {
                     if (stderr) debugLog(`Transcription stderr: ${stderr}`);
                     
                     // Read the generated txt file
-                    const txtFile = currentRecordingFile.replace('.wav', '.txt');
+                    const txtFile = recordingFile.replace('.wav', '.txt');
                     debugLog(`Reading transcription from: ${txtFile}`);
                     
                     fs.readFile(txtFile, 'utf8', (err, data) => {
